@@ -10,7 +10,7 @@
    - Gera arquivo `rule.xml` válido para o PMD
 
 3. **Execução do PMD**
-   - PMD executa a regra no código fonte
+   - PMD executa a regra no código fonte via script shell
    - Gera relatório no formato serif
 
 4. **Conversão para Sonarqube**
@@ -46,7 +46,11 @@
 
 3. **Execute o RuleBridge**
    ```bash
+   # Primeiro, gere a regra XML
    python main.py
+   
+   # Depois, execute a análise PMD
+   ./analyze.sh rule.xml /caminho/do/codigo/fonte
    ```
 
 ## Requisitos
@@ -54,6 +58,7 @@
 ```
 requests>=2.26.0
 pyyaml>=5.4.1
+pmd>=6.55.0  # Instalado separadamente
 ```
 
 ## Estrutura do Projeto
@@ -63,6 +68,7 @@ pyyaml>=5.4.1
 ├── config.py           # Configurações e credenciais
 ├── entryPoint.yaml    # Entrada do usuário
 ├── main.py            # Código principal
+├── analyze.sh         # Script de execução do PMD
 ├── requirements.txt   # Dependências
 └── README.md          # Documentação
 ```
@@ -73,45 +79,7 @@ pyyaml>=5.4.1
 - `output.serif`: Resultado da análise do PMD
 - `rules.json`: Regras no formato Sonarqube
 
-## Exemplo de Uso
-
-1. **Defina uma Regra**
-   ```yaml
-   rule:
-     name: "Detectar Strings Literais Duplicadas"
-     description: "Encontrar strings literais que são repetidas no código"
-     language: "java"
-     severity: 3
-     what_to_find: "Procure por strings literais que aparecem mais de uma vez no código"
-     examples:
-       good: |
-         public class BomExemplo {
-             private static final String MENSAGEM = "Olá Mundo";
-             void metodo() {
-                 System.out.println(MENSAGEM);
-             }
-         }
-       bad: |
-         public class ExemploRuim {
-             void metodo() {
-                 System.out.println("Olá Mundo");
-                 System.out.println("Olá Mundo");  // Duplicado
-             }
-         }
-   ```
-
-2. **Execute e Obtenha os Resultados**
-   - O sistema gerará a regra PMD correspondente
-   - Executará a análise
-   - Converterá para o formato Sonarqube
-
-## Notas
-
-- A ferramenta requer acesso à API do Stackspot
-- PMD deve estar instalado no sistema
-- As regras geradas são compatíveis com Sonarqube 9.9 LTS
-
-## Importando Regras no Sonarqube
+## Importando no Sonarqube
 
 O Sonar Scanner aceita relatórios de análise externa através dos parâmetros `sonar.externalIssuesReportPaths` 
 ou `sonar.sarifReportPaths`. Para usar o relatório gerado:
