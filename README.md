@@ -111,6 +111,36 @@ pyyaml>=5.4.1
 - PMD deve estar instalado no sistema
 - As regras geradas são compatíveis com Sonarqube 9.9 LTS
 
+## Importando Regras no Sonarqube
+
+O Sonar Scanner aceita relatórios de análise externa através dos parâmetros `sonar.externalIssuesReportPaths` 
+ou `sonar.sarifReportPaths`. Para usar o relatório gerado:
+
+```bash
+sonar-scanner \
+  -Dsonar.projectKey=meu-projeto \
+  -Dsonar.sources=. \
+  -Dsonar.host.url=http://localhost:9000 \
+  -Dsonar.login=seu-token \
+  -Dsonar.externalIssuesReportPaths=./rules.json
+```
+
+Ou, se preferir usar o formato SARIF:
+
+```bash
+sonar-scanner \
+  -Dsonar.projectKey=meu-projeto \
+  -Dsonar.sources=. \
+  -Dsonar.host.url=http://localhost:9000 \
+  -Dsonar.login=seu-token \
+  -Dsonar.sarifReportPaths=./rules.json
+```
+
+Certifique-se de que:
+- O arquivo rules.json está no formato correto de relatório externo
+- O Sonarqube está configurado para aceitar relatórios externos
+- As issues reportadas serão exibidas como issues externas no Sonarqube
+
 ## Limitações
 
 - Atualmente suporta apenas regras baseadas em XPath
