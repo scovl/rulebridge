@@ -42,4 +42,4 @@ if [ $? -eq 0 ]; then
 else
     echo "Erro durante a análise PMD"
     exit 1
-fi 
+fi
