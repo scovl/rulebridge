@@ -46,10 +46,13 @@
 
 3. **Execute o RuleBridge**
    ```bash
+   # Dê permissão de execução ao script
+   chmod +x analyze.sh
+   
    # Primeiro, gere a regra XML
    python main.py
    
-   # Depois, execute a análise PMD
+   # Depois, execute a análise PMD com o código fonte alvo
    ./analyze.sh rule.xml /caminho/do/codigo/fonte
    ```
 
