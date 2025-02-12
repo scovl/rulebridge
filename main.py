@@ -328,9 +328,10 @@ class RuleBridge:
             if not xml_rule:
                 return
 
-            # 2. Executar PMD com a regra gerada
-            serif_file = self.execute_pmd_command(xml_rule, source_path)
-            if not serif_file:
+            # 2. Ler o arquivo PMD serif (gerado externamente via shell script)
+            serif_file = Path('output.serif')
+            if not serif_file.exists():
+                print("Arquivo serif não encontrado. Execute o script analyze.sh primeiro.")
                 return
 
             # 3. Ler o arquivo PMD
