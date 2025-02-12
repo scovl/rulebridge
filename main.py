@@ -94,15 +94,30 @@ class RuleBridge:
         sonar_issues = []
         
         try:
-            # Aqui virá a lógica para ler o arquivo serif do PMD
-            # e converter para o formato do Sonarqube
+            # Converte cada violação do PMD para o formato do Sonarqube
+            for violation in pmd_report.get('violations', []):
+                issue = {
+                    "engineId": "pmd",
+                    "ruleId": violation.get('rule', 'unknown'),
+                    "severity": self.map_pmd_severity_to_sonar(violation.get('priority')),
+                    "type": "CODE_SMELL",
+                    "primaryLocation": {
+                        "message": violation.get('description', ''),
+                        "filePath": violation.get('file', ''),
+                        "textRange": {
+                            "startLine": violation.get('beginline', 1),
+                            "endLine": violation.get('endline', 1),
+                            "startColumn": violation.get('begincolumn', 1),
+                            "endColumn": violation.get('endcolumn', 1)
+                        }
+                    }
+                }
+                sonar_issues.append(issue)
             
-            sonar_format = {
+            return {
                 "issues": sonar_issues,
                 "total": len(sonar_issues)
             }
-            
-            return sonar_format
             
         except Exception as e:
             print(f"Erro ao converter o relatório: {str(e)}")
@@ -315,12 +330,9 @@ class RuleBridge:
             print(f"Erro ao ler arquivo serif: {e}")
             return None
 
-    def process(self, source_path: str) -> None:
+    def process(self) -> None:
         """
-        Executa o fluxo completo de processamento.
-
-        Args:
-            source_path: Caminho para o código fonte a ser analisado
+        Executa o fluxo de processamento para gerar a regra XML.
         """
         try:
             # 1. Processar regra em linguagem natural
@@ -328,32 +340,16 @@ class RuleBridge:
             if not xml_rule:
                 return
 
-            # 2. Ler o arquivo PMD serif (gerado externamente via shell script)
-            serif_file = Path('output.serif')
-            if not serif_file.exists():
-                print("Arquivo serif não encontrado. Execute o script analyze.sh primeiro.")
-                return
-
-            # 3. Ler o arquivo PMD
-            pmd_report = self.read_serif_file(serif_file)
-            if not pmd_report:
-                return
-
-            # 4. Converter para formato Sonarqube
-            sonar_issues = self.convert_pmd_to_sonar(pmd_report)
-
-            # 5. Salvar o resultado
-            if sonar_issues:
-                self.save_sonar_rules(sonar_issues)
+            print(f"Regra XML gerada com sucesso. Execute agora:")
+            print(f"./analyze.sh {xml_rule} <caminho_do_codigo_fonte>")
 
         except Exception as e:
             print(f"Erro durante a execução: {e}")
 
 def main() -> None:
     """Função principal que instancia e executa o RuleBridge."""
-    source_path = "caminho/do/codigo/fonte"  # Deve ser passado como argumento
     bridge = RuleBridge()
-    bridge.process(source_path)
+    bridge.process()
 
 if __name__ == "__main__":
     main() 
