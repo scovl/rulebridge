@@ -1,4 +1,4 @@
-# Credenciais de autenticação do Stackspot
+# Credenciais de autenticação
 CLIENT_ID = ""
 CLIENT_KEY = ""
 REALM = ""
