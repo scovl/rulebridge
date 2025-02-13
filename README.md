@@ -1,6 +1,6 @@
 # rulebridge
 
-1. **Entrada do Usuário** (`entryPoint.yaml`)
+1. **Entrada do Usuário** (`entryPoint.json`)
    - Usuário descreve a regra em linguagem natural
    - Fornece exemplos de código bom e ruim
    - Define severidade e linguagem alvo
@@ -29,19 +29,20 @@
    ```
 
 2. **Crie sua Regra**
-   ```yaml
-   # entryPoint.yaml
-   rule:
-     name: "Nome da Regra"
-     description: "Descrição clara da regra"
-     language: "java"
-     severity: 3  # 1-blocker até 5-info
-     what_to_find: "Descreva em linguagem natural o que procurar"
-     examples:
-       good: |
-         // Código que segue a regra
-       bad: |
-         // Código que viola a regra
+   ```json
+   {
+     "rule": {
+       "name": "Nome da Regra",
+       "description": "Descrição clara da regra",
+       "language": "java",
+       "severity": 3,
+       "what_to_find": "Descreva em linguagem natural o que procurar",
+       "examples": {
+         "good": "// Código que segue a regra",
+         "bad": "// Código que viola a regra"
+       }
+     }
+   }
    ```
 
 3. **Execute o RuleBridge**
@@ -69,7 +70,7 @@ pmd>=6.55.0  # Instalado separadamente
 ```
 .
 ├── config.py           # Configurações e credenciais
-├── entryPoint.yaml    # Entrada do usuário
+├── entryPoint.json    # Entrada do usuário
 ├── main.py            # Código principal
 ├── analyze.sh         # Script de execução do PMD
 ├── requirements.txt   # Dependências
