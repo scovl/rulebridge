@@ -2,6 +2,7 @@ import json
 import yaml
 import requests
 import subprocess
+import time
 from xml.dom import minidom
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -21,22 +22,16 @@ class RuleBridge:
             json_file: Caminho para o arquivo JSON de entrada
         """
         self.json_file = json_file
+        self.auth_file = Path("auth.json")
         
         # URLs da API
         self.auth_url = "https://api.stackspot.com/v1/auth"
         self.post_url = "https://api.stackspot.com/v1/completions"
         self.get_url = "https://api.stackspot.com/v1/rules"
         
-        # Headers
+        # Headers base
         self.auth_header = {
             'Content-Type': 'application/x-www-form-urlencoded'
-        }
-        
-        self.data_header = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {CLIENT_KEY}',
-            'X-Client-Id': CLIENT_ID,
-            'X-Realm': REALM
         }
         
         # Data para autenticação
@@ -46,7 +41,89 @@ class RuleBridge:
             'realm': REALM,
             'grant_type': 'client_credentials'
         }
+        
+        # Inicializa o token
+        self.ensure_valid_token()
     
+    def is_token_expired(self, auth_data: Dict) -> bool:
+        """
+        Verifica se o token atual expirou.
+
+        Args:
+            auth_data: Dados de autenticação do arquivo auth.json
+
+        Returns:
+            True se o token expirou, False caso contrário
+        """
+        obtained_at = auth_data.get('obtained_at', 0)
+        expires_in = auth_data.get('expires_in', 0)
+        return (time.time() - obtained_at) > expires_in
+
+    def get_token(self) -> Optional[Dict]:
+        """
+        Obtém um novo token de acesso.
+
+        Returns:
+            Dicionário com os dados do token ou None em caso de erro
+        """
+        try:
+            response = requests.post(
+                self.auth_url,
+                headers=self.auth_header,
+                data=self.data_urlencode,
+                proxies=PROXIES
+            )
+            
+            if response.status_code == 200:
+                auth_data = response.json()
+                auth_data['obtained_at'] = time.time()
+                
+                # Salva o token no arquivo
+                with open(self.auth_file, 'w') as f:
+                    json.dump(auth_data, f, indent=2)
+                
+                return auth_data
+            else:
+                print(f"Erro ao obter token: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"Erro durante autenticação: {e}")
+            return None
+
+    def ensure_valid_token(self) -> None:
+        """
+        Garante que existe um token válido para uso.
+        Atualiza os headers com o token atual.
+        """
+        try:
+            # Tenta ler o token existente
+            if self.auth_file.exists():
+                with open(self.auth_file, 'r') as f:
+                    auth_data = json.load(f)
+                
+                # Se o token expirou, obtém um novo
+                if self.is_token_expired(auth_data):
+                    auth_data = self.get_token()
+            else:
+                # Se não existe arquivo de auth, obtém um novo token
+                auth_data = self.get_token()
+            
+            if auth_data:
+                # Atualiza os headers com o token atual
+                self.data_header = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f"Bearer {auth_data['access_token']}",
+                    'X-Client-Id': CLIENT_ID,
+                    'X-Realm': REALM
+                }
+            else:
+                raise Exception("Não foi possível obter um token válido")
+                
+        except Exception as e:
+            print(f"Erro ao garantir token válido: {e}")
+            raise
+
     def map_pmd_severity_to_sonar(self, pmd_severity):
         """
         Mapeia a severidade do PMD para o formato do Sonarqube
@@ -142,17 +219,61 @@ class RuleBridge:
             print(f"Erro ao converter o relatório: {str(e)}")
             return None
 
+    # Templates XML como constantes da classe
+    XML_HEADER = """<?xml version="1.0"?>
+<ruleset name="Custom Rules"
+    xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    
+    <description>Regra customizada gerada via IA</description>"""
+
+    XML_FOOTER = """
+</ruleset>"""
+
+    RULE_TEMPLATE = """
+    <rule name="{name}"
+          language="{language}"
+          message="{message}"
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+          externalInfoUrl="https://pmd.github.io/latest/pmd_rules_java.html">
+          
+        <description>{description}</description>
+        <priority>{severity}</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+                <![CDATA[
+                {xpath}
+                ]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+            <![CDATA[
+            // Exemplo de código correto
+            {good_example}
+            
+            // Exemplo de código incorreto
+            {bad_example}
+            ]]>
+        </example>
+    </rule>"""
+
     def process_natural_language_rule(self):
         """
         Processa a regra em linguagem natural e converte para XML do PMD
-        usando o Stackspot como intermediário
+        usando o Stackspot como intermediário apenas para o XPath
         """
         try:
+            # Garante token válido antes da chamada
+            self.ensure_valid_token()
+            
             # Lê o arquivo JSON
             with open(self.json_file, 'r', encoding='utf-8') as f:
                 rule_config = json.load(f)
             
-            # Primeiro prompt para gerar o XPath
+            # Gera apenas o XPath via IA
             xpath_prompt = f"""
             Crie uma expressão XPath para PMD que implemente a seguinte regra:
             
@@ -169,7 +290,6 @@ class RuleBridge:
             Retorne APENAS a expressão XPath, sem explicações.
             """
             
-            # Chama Stackspot para gerar o XPath
             xpath_payload = {
                 'prompt': xpath_prompt,
                 'temperature': 0.3,
@@ -189,83 +309,35 @@ class RuleBridge:
             
             xpath_expression = xpath_response.json()['choices'][0]['text'].strip()
             
-            # Agora gera o XML completo com o XPath
-            xml_prompt = f"""
-            Crie uma regra PMD XML com a seguinte estrutura exata:
-            
-            <?xml version="1.0"?>
-            <ruleset name="Custom Rules"
-                xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
-                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
-                
-                <description>Regra customizada gerada via IA</description>
-                
-                <rule name="{rule_config['rule']['name']}"
-                      language="{rule_config['rule']['language']}"
-                      message="{rule_config['rule']['description']}"
-                      class="net.sourceforge.pmd.lang.rule.XPathRule"
-                      externalInfoUrl="https://pmd.github.io/latest/pmd_rules_java.html">
-                      
-                    <description>{rule_config['rule']['description']}</description>
-                    <priority>{rule_config['rule']['severity']}</priority>
-                    <properties>
-                        <property name="xpath">
-                            <value>
-                            <![CDATA[
-                            {xpath_expression}
-                            ]]>
-                            </value>
-                        </property>
-                    </properties>
-                    <example>
-                        <![CDATA[
-                        // Exemplo de código correto
-                        {rule_config['rule']['examples']['good']}
-                        
-                        // Exemplo de código incorreto
-                        {rule_config['rule']['examples']['bad']}
-                        ]]>
-                    </example>
-                </rule>
-            </ruleset>
-            """
-            
-            payload = {
-                'prompt': xml_prompt,
-                'temperature': 0.3,
-                'max_tokens': 1000
-            }
-            
-            response = requests.post(
-                self.post_url,
-                headers=self.data_header,
-                json=payload,
-                proxies=PROXIES
+            # Monta o XML usando os templates
+            rule_xml = self.RULE_TEMPLATE.format(
+                name=rule_config['rule']['name'],
+                language=rule_config['rule']['language'],
+                message=rule_config['rule']['description'],
+                description=rule_config['rule']['description'],
+                severity=rule_config['rule']['severity'],
+                xpath=xpath_expression,
+                good_example=rule_config['rule']['examples']['good'],
+                bad_example=rule_config['rule']['examples']['bad']
             )
             
-            if response.status_code == 200:
-                xml_string = response.json()['choices'][0]['text']
-                
-                # Parse e formata o XML usando minidom
-                xml_dom = minidom.parseString(xml_string)
-                pretty_xml = xml_dom.toprettyxml(indent="  ")
-                
-                # Salva a regra XML formatada
-                xml_file = Path(self.json_file).with_suffix('.xml')
-                with open(xml_file, 'w', encoding='utf-8') as f:
-                    f.write(pretty_xml)
-                
-                # Valida o XML gerado
-                if self.validate_pmd_rule(xml_file):
-                    print(f"Regra XML gerada com sucesso: {xml_file}")
-                    return xml_file
-                else:
-                    print("XML gerado não é válido para o PMD")
-                    return None
-                
+            complete_xml = f"{self.XML_HEADER}{rule_xml}{self.XML_FOOTER}"
+            
+            # Parse e formata o XML
+            xml_dom = minidom.parseString(complete_xml)
+            pretty_xml = xml_dom.toprettyxml(indent="  ")
+            
+            # Salva a regra XML formatada
+            xml_file = Path(self.json_file).with_suffix('.xml')
+            with open(xml_file, 'w', encoding='utf-8') as f:
+                f.write(pretty_xml)
+            
+            # Valida o XML gerado
+            if self.validate_pmd_rule(xml_file):
+                print(f"Regra XML gerada com sucesso: {xml_file}")
+                return xml_file
             else:
-                print(f"Erro na chamada ao Stackspot: {response.status_code}")
+                print("XML gerado não é válido para o PMD")
                 return None
                 
         except Exception as e:
