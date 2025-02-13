@@ -20,15 +20,12 @@
     <description>
       Verifica a presença da dependência do Jacoco com a versão 0.8.12 no pom.xml.
     </description>
+    <priority>3</priority>
     <properties>
-      <!-- Versão do motor XPath do PMD -->
-      <property name="version" value="2.0"/>
-      <!-- A expressão abaixo seleciona o nó <project> caso não exista nenhum nó <dependency>
-           que possua groupId 'org.jacoco' e version '0.8.12'. -->
       <property name="xpath">
-        <![CDATA[
+        <value>
           /project[not(.//dependency[groupId='org.jacoco' and version='0.8.12'])]
-        ]]>
+        </value>
       </property>
     </properties>
   </rule>
