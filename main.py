@@ -306,32 +306,6 @@ class RuleBridge:
             print(f"Erro na validação do XML: {str(e)}")
             return False
 
-    def execute_pmd_command(self, xml_rule: Path, source_path: str) -> Optional[Path]:
-        """
-        Executa o comando PMD CLI.
-
-        Args:
-            xml_rule: Caminho para o arquivo de regra XML
-            source_path: Caminho para o código fonte a ser analisado
-
-        Returns:
-            Path do arquivo SARIF gerado ou None em caso de erro
-        """
-        output_file = Path('output.sarif')
-        try:
-            cmd = [
-                'pmd',
-                '-R', str(xml_rule),
-                '-d', source_path,
-                '-f', 'sarif',
-                '-r', str(output_file)
-            ]
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
-            return output_file
-        except subprocess.CalledProcessError as e:
-            print(f"Erro ao executar PMD: {e}")
-            return None
-
     def read_sarif_file(self, sarif_file: Path) -> Optional[Dict[str, Any]]:
         """
         Lê o arquivo SARIF gerado pelo PMD.
