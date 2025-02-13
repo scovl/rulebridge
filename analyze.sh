@@ -32,12 +32,12 @@ echo "Executando análise PMD..."
 pmd \
     -R "$XML_RULE" \
     -d "$SOURCE_PATH" \
-    -f serif \
-    -r output.serif
+    -f sarif \
+    -r output.sarif
 
 # Verifica se a execução foi bem sucedida
 if [ $? -eq 0 ]; then
-    echo "Análise concluída com sucesso. Resultado salvo em output.serif"
+    echo "Análise concluída com sucesso. Resultado salvo em output.sarif"
     exit 0
 else
     echo "Erro durante a análise PMD"

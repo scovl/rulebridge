@@ -296,15 +296,15 @@ class RuleBridge:
             source_path: Caminho para o código fonte a ser analisado
 
         Returns:
-            Path do arquivo serif gerado ou None em caso de erro
+            Path do arquivo SARIF gerado ou None em caso de erro
         """
-        output_file = Path('output.serif')
+        output_file = Path('output.sarif')
         try:
             cmd = [
                 'pmd',
                 '-R', str(xml_rule),
                 '-d', source_path,
-                '-f', 'serif',
+                '-f', 'sarif',
                 '-r', str(output_file)
             ]
             subprocess.run(cmd, check=True, capture_output=True, text=True)
@@ -313,21 +313,21 @@ class RuleBridge:
             print(f"Erro ao executar PMD: {e}")
             return None
 
-    def read_serif_file(self, serif_file: Path) -> Optional[Dict[str, Any]]:
+    def read_sarif_file(self, sarif_file: Path) -> Optional[Dict[str, Any]]:
         """
-        Lê o arquivo serif gerado pelo PMD.
+        Lê o arquivo SARIF gerado pelo PMD.
 
         Args:
-            serif_file: Caminho para o arquivo serif
+            sarif_file: Caminho para o arquivo SARIF
 
         Returns:
             Dicionário com o conteúdo do arquivo ou None em caso de erro
         """
         try:
-            with open(serif_file, 'r', encoding='utf-8') as f:
+            with open(sarif_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Erro ao ler arquivo serif: {e}")
+            print(f"Erro ao ler arquivo SARIF: {e}")
             return None
 
     def process(self) -> None:

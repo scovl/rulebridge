@@ -11,7 +11,7 @@
 
 3. **Execução do PMD**
    - PMD executa a regra no código fonte via script shell
-   - Gera relatório no formato serif
+   - Gera relatório no formato SARIF
 
 4. **Conversão para Sonarqube**
    - RuleBridge converte o relatório serif para JSON
@@ -79,13 +79,12 @@ pmd>=6.55.0  # Instalado separadamente
 ## Arquivos Gerados
 
 - `rule.xml`: Regra no formato PMD
-- `output.serif`: Resultado da análise do PMD
+- `output.sarif`: Resultado da análise do PMD em formato SARIF
 - `rules.json`: Regras no formato Sonarqube
 
 ## Importando no Sonarqube
 
-O Sonar Scanner aceita relatórios de análise externa através dos parâmetros `sonar.externalIssuesReportPaths` 
-ou `sonar.sarifReportPaths`. Para usar o relatório gerado:
+O Sonar Scanner aceita relatórios de análise externa através do parâmetro `sonar.sarifReportPaths`. Para usar o relatório gerado:
 
 ```bash
 sonar-scanner \
@@ -93,24 +92,10 @@ sonar-scanner \
   -Dsonar.sources=. \
   -Dsonar.host.url=http://localhost:9000 \
   -Dsonar.login=seu-token \
-  -Dsonar.externalIssuesReportPaths=./rules.json
+  -Dsonar.sarifReportPaths=./output.sarif
 ```
 
-Ou, se preferir usar o formato SARIF:
-
-```bash
-sonar-scanner \
-  -Dsonar.projectKey=meu-projeto \
-  -Dsonar.sources=. \
-  -Dsonar.host.url=http://localhost:9000 \
-  -Dsonar.login=seu-token \
-  -Dsonar.sarifReportPaths=./rules.json
-```
-
-Certifique-se de que:
-- O arquivo rules.json está no formato correto de relatório externo
-- O Sonarqube está configurado para aceitar relatórios externos
-- As issues reportadas serão exibidas como issues externas no Sonarqube
+- O arquivo output.sarif está no formato SARIF v2.1.0
 
 ## Limitações
 
