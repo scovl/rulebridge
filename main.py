@@ -13,19 +13,38 @@ class RuleBridge:
     PMD e Sonarqube
     """
     
-    def __init__(self, yaml_file: str = "entryPoint.yaml") -> None:
+    def __init__(self, json_file: str = "entryPoint.json") -> None:
         """
         Inicializa o RuleBridge.
 
         Args:
-            yaml_file: Caminho para o arquivo YAML de entrada
+            json_file: Caminho para o arquivo JSON de entrada
         """
-        self.yaml_file = yaml_file
-        self.headers = {
+        self.json_file = json_file
+        
+        # URLs da API
+        self.auth_url = "https://api.stackspot.com/v1/auth"
+        self.post_url = "https://api.stackspot.com/v1/completions"
+        self.get_url = "https://api.stackspot.com/v1/rules"
+        
+        # Headers
+        self.auth_header = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        self.data_header = {
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {CLIENT_KEY}',
             'X-Client-Id': CLIENT_ID,
             'X-Realm': REALM
+        }
+        
+        # Data para autenticação
+        self.data_urlencode = {
+            'client_id': CLIENT_ID,
+            'client_secret': CLIENT_KEY,
+            'realm': REALM,
+            'grant_type': 'client_credentials'
         }
     
     def map_pmd_severity_to_sonar(self, pmd_severity):
@@ -129,9 +148,9 @@ class RuleBridge:
         usando o Stackspot como intermediário
         """
         try:
-            # Lê o arquivo YAML
-            with open(self.yaml_file, 'r', encoding='utf-8') as f:
-                rule_config = yaml.safe_load(f)
+            # Lê o arquivo JSON
+            with open(self.json_file, 'r', encoding='utf-8') as f:
+                rule_config = json.load(f)
             
             # Primeiro prompt para gerar o XPath
             xpath_prompt = f"""
@@ -158,8 +177,8 @@ class RuleBridge:
             }
             
             xpath_response = requests.post(
-                'URL_DO_STACKSPOT/completions',
-                headers=self.headers,
+                self.post_url,
+                headers=self.data_header,
                 json=xpath_payload,
                 proxies=PROXIES
             )
@@ -219,8 +238,8 @@ class RuleBridge:
             }
             
             response = requests.post(
-                'URL_DO_STACKSPOT/completions',
-                headers=self.headers,
+                self.post_url,
+                headers=self.data_header,
                 json=payload,
                 proxies=PROXIES
             )
@@ -233,7 +252,7 @@ class RuleBridge:
                 pretty_xml = xml_dom.toprettyxml(indent="  ")
                 
                 # Salva a regra XML formatada
-                xml_file = Path(self.yaml_file).with_suffix('.xml')
+                xml_file = Path(self.json_file).with_suffix('.xml')
                 with open(xml_file, 'w', encoding='utf-8') as f:
                     f.write(pretty_xml)
                 
