@@ -1,0 +1,13 @@
+{
+  "rule": {
+    "name": "Detectar Strings Literais Duplicadas",
+    "description": "Encontrar strings literais que são repetidas no código",
+    "language": "java",
+    "severity": 3,
+    "what_to_find": "Procure por strings literais que aparecem mais de uma vez no código, exceto strings vazias",
+    "examples": {
+      "good": "public class BomExemplo {\n    private static final String MENSAGEM = \"Olá Mundo\";\n    \n    void metodo1() {\n        System.out.println(MENSAGEM);\n    }\n    \n    void metodo2() {\n        System.out.println(MENSAGEM);\n    }\n}",
+      "bad": "public class ExemploRuim {\n    void metodo1() {\n        System.out.println(\"Olá Mundo\");\n    }\n    \n    void metodo2() {\n        System.out.println(\"Olá Mundo\");  // String duplicada\n    }\n}"
+    }
+  }
+} 
