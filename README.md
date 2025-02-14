@@ -1,105 +1,95 @@
-# rulebridge
+# Rule Bridge
 
-1. **Entrada do Usuário** (`entryPoint.json`)
-   - Usuário descreve a regra em linguagem natural
-   - Fornece exemplos de código bom e ruim
-   - Define severidade e linguagem alvo
+A bridge between natural language rule descriptions and static code analysis tools.
 
-2. **Geração da Regra PMD**
-   - Stackspot AI converte a descrição em expressão XPath
-   - Gera arquivo `rule.xml` válido para o PMD
+## Overview
 
-3. **Execução do PMD**
-   - PMD executa a regra no código fonte via script shell
-   - Gera relatório no formato SARIF
+This project converts natural language rule descriptions into static analysis rules, currently supporting:
+- PMD (experimental)
 
-4. **Conversão para Sonarqube**
-   - RuleBridge converte o relatório serif para JSON
-   - Gera arquivo no formato do Sonarqube 9.9 LTS
+Planned support for:
+- Semgrep
+- SonarQube Custom Rules
+- Other static analysis engines
 
-## Como Usar
+## How it Works
 
-1. **Configure as Credenciais**
-   ```python
-   # config.py
-   CLIENT_ID = "seu_client_id"
-   CLIENT_KEY = "sua_client_key"
-   REALM = "seu_realm"
-   PROXIES = {}  # se necessário
-   ```
+1. Takes a natural language rule description via `entryPoint.json`
+2. Generates AST of the target code using PMD's --dump-ast
+3. Uses AI with AST context to generate accurate XPath expressions
+4. Converts the rule into PMD XML format
+5. Validates and executes the rule
 
-2. **Crie sua Regra**
-   ```json
-   {
-     "rule": {
-       "name": "Nome da Regra",
-       "description": "Descrição clara da regra",
-       "language": "java",
-       "severity": 3,
-       "what_to_find": "Descreva em linguagem natural o que procurar",
-       "examples": {
-         "good": "// Código que segue a regra",
-         "bad": "// Código que viola a regra"
-       }
-     }
-   }
-   ```
-
-3. **Execute o RuleBridge**
-   ```bash
-   # Dê permissão de execução ao script
-   chmod +x analyze.sh
-   
-   # Primeiro, gere a regra XML
-   python main.py
-   
-   # Depois, execute a análise PMD com o código fonte alvo
-   ./analyze.sh rule.xml /caminho/do/codigo/fonte
-   ```
-
-## Requisitos
+## Architecture
 
 ```
-requests>=2.26.0
-pyyaml>=5.4.1
-pmd>=6.55.0  # Instalado separadamente
+rulebridge/
+├── src/
+│   ├── core/          # Core rule processing
+│   ├── utils/         # Utility functions
+│   └── config/        # Configuration
+├── examples/          # Example rules
+└── tests/            # Test suite
 ```
 
-## Estrutura do Projeto
+## Current Support (Experimental)
 
-```
-.
-├── config.py           # Configurações e credenciais
-├── entryPoint.json    # Entrada do usuário
-├── main.py            # Código principal
-├── analyze.sh         # Script de execução do PMD
-├── requirements.txt   # Dependências
-└── README.md          # Documentação
-```
+- PMD XPath Rules
+  - XML validation
+  - Rule generation
+  - Basic rule testing
 
-## Arquivos Gerados
+## Planned Extensions
 
-- `rule.xml`: Regra no formato PMD
-- `output.sarif`: Resultado da análise do PMD em formato SARIF
-- `rules.json`: Regras no formato Sonarqube
+- Semgrep Rules
+  - YAML format
+  - Pattern matching
+  - Multiple language support
 
-## Importando no Sonarqube
+- SonarQube Custom Rules
+  - JSON format
+  - Quality profiles
+  - Issue tracking
 
-O Sonar Scanner aceita relatórios de análise externa através do parâmetro `sonar.sarifReportPaths`. Para usar o relatório gerado:
+- Additional Engines
+  - ESLint
+  - Checkstyle
+  - SpotBugs
+
+## Usage
 
 ```bash
-sonar-scanner \
-  -Dsonar.projectKey=meu-projeto \
-  -Dsonar.sources=. \
-  -Dsonar.host.url=http://localhost:9000 \
-  -Dsonar.login=seu-token \
-  -Dsonar.sarifReportPaths=./output.sarif
+# Configure settings
+Edit src/config/settings.py
+
+# Create rule description
+Edit entryPoint.json
+
+# Generate and test rule
+python main.py
+./analyze.sh rule.xml <source_code_path>
 ```
 
-- O arquivo output.sarif está no formato SARIF v2.1.0
+## Note
 
-## Limitações
+The PMD integration is currently experimental and serves as a proof of concept. The project's goal is to support multiple static analysis engines, with Semgrep being the next planned integration.
 
-- Atualmente suporta apenas regras baseadas em XPath
-- Requer exemplos claros de código bom e ruim
-- Depende da qualidade da resposta do Stackspot
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. Areas of interest:
+- Additional engine support
+- Rule validation improvements
+- AI prompt engineering
+- Test coverage
+
+## License
+
+MIT
+
+## Advanced Features
+
+### AST-Aware Rule Generation
+- Uses PMD's Abstract Syntax Tree
+- Provides structural context to AI
+- Improves XPath expression accuracy
+- Better pattern matching
