@@ -1,0 +1,14 @@
+name: 'Upload Artifacts'
+description: 'Upload build artifacts'
+
+runs:
+  using: composite
+  steps:
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: rule-artifacts
+        path: |
+          rule.xml
+          pmd_report.json
+          .ast_cache/ 

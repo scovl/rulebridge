@@ -1,0 +1,22 @@
+name: 'Run Tests'
+description: 'Execute test suite'
+
+runs:
+  using: composite
+  steps:
+    - name: Run test example
+      shell: bash
+      run: |
+        # Run main script
+        python main.py
+        
+        # Create test Java file with issue
+        mkdir -p test/src
+        echo "public class Test { public void test() { } public void test() { } }" > test/src/Test.java
+        
+        # Run analysis through Python
+        python -c "
+        from src import RuleBridge
+        bridge = RuleBridge(source_path='test/src')
+        bridge.process()
+        " 

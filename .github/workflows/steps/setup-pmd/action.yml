@@ -1,0 +1,11 @@
+name: 'Setup PMD'
+description: 'Setup PMD environment'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup PMD environment
+      shell: bash
+      run: |
+        chmod +x scripts/setup.sh
+        ./scripts/setup.sh 

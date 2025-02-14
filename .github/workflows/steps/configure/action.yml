@@ -1,0 +1,13 @@
+name: 'Configure Settings'
+description: 'Configure application settings'
+
+runs:
+  using: composite
+  steps:
+    - name: Create settings file
+      shell: bash
+      run: |
+        echo "CLIENT_ID = '${{ secrets.STACKSPOT_CLIENT_ID }}'" > src/config/settings.py
+        echo "CLIENT_KEY = '${{ secrets.STACKSPOT_CLIENT_KEY }}'" >> src/config/settings.py
+        echo "REALM = '${{ secrets.STACKSPOT_REALM }}'" >> src/config/settings.py
+        echo "PROXIES = {}" >> src/config/settings.py 
