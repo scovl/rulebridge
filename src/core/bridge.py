@@ -7,6 +7,7 @@ from .auth import TokenManager
 from .templates import XMLTemplates
 from .constants import PMD_RULE_METADATA, SEVERITY_MAPPING, PMD_SONAR_MAPPING
 from .ast_manager import ASTManager
+from .analyzer import PMDAnalyzer
 import json
 import requests
 import time
@@ -21,6 +22,7 @@ class RuleBridge:
         self.xml_validator = XMLValidator()
         self.templates = XMLTemplates()
         self.ast_manager = ASTManager()
+        self.analyzer = PMDAnalyzer()
         
         # Polling configuration
         self.max_wait_time = max_wait_time
@@ -351,13 +353,18 @@ class RuleBridge:
         Execute the complete flow to generate XML rule
         """
         try:
-            # Generate XML rule from natural language
+            # Generate XML rule
             xml_rule = self.process_natural_language_rule()
             if not xml_rule:
                 return
 
-            print(f"XML rule generated successfully. Now run:")
-            print(f"./analyze.sh {xml_rule} <source_code_path>")
+            print(f"XML rule generated successfully: {xml_rule}")
+            
+            # Optional: Run analysis immediately
+            if self.source_path:
+                results = self.analyzer.analyze(xml_rule, self.source_path)
+                if results:
+                    print("Analysis results:", json.dumps(results, indent=2))
 
         except Exception as e:
             print(f"Error during execution: {e}") 
