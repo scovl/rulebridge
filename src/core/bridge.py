@@ -5,6 +5,7 @@ from src.config import CLIENT_ID, CLIENT_KEY, REALM, PROXIES
 from src.utils import FileHandler, XMLValidator
 from .auth import TokenManager
 from .templates import XMLTemplates
+from .constants import PMD_RULE_METADATA, SEVERITY_MAPPING, PMD_SONAR_MAPPING
 import json
 import requests
 import time
@@ -41,23 +42,57 @@ class RuleBridge:
         }
         return severity_map.get(str(pmd_severity), "INFO")
 
+    def extract_sonar_metadata(self, description: str) -> Dict:
+        """
+        Extract Sonarqube metadata from PMD rule description tag
+        
+        Args:
+            description: PMD rule description containing type and effort tags
+            
+        Returns:
+            Dictionary with Sonarqube metadata
+        """
+        type_tag = None
+        effort_tag = None
+        
+        # Extract tags from description [TYPE][EFFORT]
+        for tag in PMD_SONAR_MAPPING['DESCRIPTION_TAG'].keys():
+            if tag in description:
+                type_tag = tag
+                break
+        
+        for tag in PMD_SONAR_MAPPING['EFFORT'].keys():
+            if tag in description:
+                effort_tag = tag
+                break
+        
+        return {
+            'type': PMD_SONAR_MAPPING['DESCRIPTION_TAG'].get(type_tag, {'type': 'CODE_SMELL'})['type'],
+            'debt': PMD_SONAR_MAPPING['EFFORT'].get(effort_tag, '20min')
+        }
+
     def create_sonar_rule(self, pmd_rule):
         """
-        Converts a PMD rule to Sonarqube 9.9 LTS format
+        Converts a PMD rule to Sonarqube format with proper metadata mapping
         """
+        # Extract type and debt from description tag
+        metadata = self.extract_sonar_metadata(pmd_rule.get('description', ''))
+        
         return {
             "key": pmd_rule.get("name", "unknown_rule"),
             "name": pmd_rule.get("name", "Unknown Rule"),
             "status": "ready",
-            "type": "CODE_SMELL",
-            "severity": self.map_pmd_severity_to_sonar(pmd_rule.get("priority", "5")),
+            "type": metadata['type'],
+            "severity": PMD_SONAR_MAPPING['SEVERITY'].get(
+                int(pmd_rule.get("priority", "3")), "MAJOR"
+            ),
             "description": pmd_rule.get("message", "No description available"),
             "tags": ["pmd"],
             "remediation": {
                 "func": "Constant/Issue",
-                "constantCost": "5min"
+                "constantCost": metadata['debt']
             },
-            "debtRemediationFunctionCoefficient": "5min",
+            "debtRemediationFunctionCoefficient": metadata['debt'],
             "scope": "MAIN"
         }
 
@@ -175,19 +210,26 @@ class RuleBridge:
             if not rule_config:
                 return None
 
+            # Extract only what AI needs to process
+            ai_input = {
+                'what_to_find': rule_config['rule']['what_to_find'],
+                'good_example': rule_config['rule']['examples']['good'],
+                'bad_example': rule_config['rule']['examples']['bad']
+            }
+
             # Build XPath prompt for AI
             xpath_prompt = f"""
             Create a PMD XPath expression that implements the following rule:
             
-            Description: {rule_config['rule']['what_to_find']}
+            Description: {ai_input['what_to_find']}
             
             The expression must be valid for PMD and detect the problem shown in the bad example:
             
             Problem code:
-            {rule_config['rule']['examples']['bad']}
+            {ai_input['bad_example']}
             
             Correct code:
-            {rule_config['rule']['examples']['good']}
+            {ai_input['good_example']}
             
             Return ONLY the XPath expression, without explanations.
             """
@@ -223,16 +265,15 @@ class RuleBridge:
             
             xpath_expression = ai_response['result']['choices'][0]['text'].strip()
             
-            # Build XML using templates
+            # Build XML using templates and constants
             rule_xml = self.templates.RULE_TEMPLATE.format(
                 name=rule_config['rule']['name'],
                 language=rule_config['rule']['language'],
                 message=rule_config['rule']['description'],
-                description=rule_config['rule']['description'],
+                rule_class=PMD_RULE_METADATA['RULE_CLASS'],
+                severity_tag=SEVERITY_MAPPING[rule_config['rule']['severity']],
                 severity=rule_config['rule']['severity'],
-                xpath=xpath_expression,
-                good_example=rule_config['rule']['examples']['good'],
-                bad_example=rule_config['rule']['examples']['bad']
+                xpath=xpath_expression
             )
             
             complete_xml = f"{self.templates.XML_HEADER}{rule_xml}{self.templates.XML_FOOTER}"
