@@ -209,6 +209,39 @@ class RuleBridge:
             print(f"Error reading AST file: {e}")
             return None
 
+    def get_ai_payload(self, prompt: str, engine: str = "stackspot") -> Dict:
+        """
+        Build AI payload based on engine type
+        
+        Args:
+            prompt: The prompt text to send
+            engine: AI engine name (stackspot, gpt, deepseek, etc)
+            
+        Returns:
+            Dictionary with engine-specific payload
+        """
+        # Base payload used by all engines
+        payload = {
+            'prompt': prompt
+        }
+        
+        # Add engine-specific parameters
+        if engine == "gpt":
+            payload.update({
+                'temperature': 0.3,
+                'max_tokens': 500
+            })
+        elif engine == "deepseek":
+            payload.update({
+                'temperature': 0.3,
+                'max_tokens': 500,
+                'top_p': 0.95
+            })
+        # stackspot uses only prompt
+        # add more engines as needed
+        
+        return payload
+
     def process_natural_language_rule(self):
         """
         Process natural language rule and convert to PMD XML
@@ -261,11 +294,8 @@ class RuleBridge:
             Return ONLY the XPath expression, without explanations.
             """
             
-            xpath_payload = {
-                'prompt': xpath_prompt,
-                'temperature': 0.3,
-                'max_tokens': 500
-            }
+            # Get engine-specific payload
+            xpath_payload = self.get_ai_payload(xpath_prompt, engine="stackspot")
             
             # Initial request to AI
             initial_response = requests.post(
