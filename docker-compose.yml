@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  pmd:
+    image: registry.access.redhat.com/ubi8/ubi-minimal:8.8
+    container_name: pmd-cli
+    volumes:
+      - ./:/workspace
+      - pmd-data:/opt/pmd
+    working_dir: /workspace
+    environment:
+      - PMD_VERSION=7.10.0
+    command: |
+      /bin/sh -c '
+        microdnf install -y java-21-openjdk-devel wget unzip &&
+        wget https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.10.0/pmd-dist-${PMD_VERSION}.zip -O /tmp/pmd.zip &&
+        unzip /tmp/pmd.zip -d /opt &&
+        mv /opt/pmd-bin-${PMD_VERSION} /opt/pmd &&
+        rm /tmp/pmd.zip &&
+        ln -s /opt/pmd/bin/pmd /usr/local/bin/pmd &&
+        chmod +x /usr/local/bin/pmd &&
+        /usr/local/bin/pmd
+      '
+
+volumes:
+  pmd-data:
+    name: pmd-data 

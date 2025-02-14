@@ -58,6 +58,19 @@ rulebridge/
 
 ## Usage
 
+### Using with Podman
+```bash
+# Start PMD container
+podman-compose up -d
+
+# Run analysis
+./analyze.sh rule.xml <source_code_path>
+
+# Stop container when done
+podman-compose down
+```
+
+### Manual Setup
 ```bash
 # Configure settings
 Edit src/config/settings.py
@@ -67,7 +80,6 @@ Edit entryPoint.json
 
 # Generate and test rule
 python main.py
-./analyze.sh rule.xml <source_code_path>
 ```
 
 ## Note

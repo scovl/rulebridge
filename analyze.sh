@@ -16,7 +16,7 @@ mkdir -p $AST_CACHE_DIR
 
 # Generate AST for bad example first
 echo "Generating example AST..."
-pmd check \
+podman-compose run --rm pmd check \
     -d "examples/bad_example" \
     --dump-ast \
     -f json \
@@ -28,7 +28,7 @@ python src/tools/ast_sampler.py "$SOURCE_PATH" "$AST_CACHE_DIR"
 
 # Run PMD analysis
 echo "Running PMD analysis..."
-pmd check \
+podman-compose run --rm pmd check \
     -R "$RULE_XML" \
     -d "$SOURCE_PATH" \
     -f json \
