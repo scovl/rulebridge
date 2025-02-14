@@ -3,10 +3,21 @@ from typing import Dict, Optional
 import json
 import tempfile
 import subprocess
+import hashlib
 
 class ASTManager:
-    def __init__(self):
+    def __init__(self, use_cache: bool = False):
         self.temp_dir = Path(tempfile.mkdtemp())
+        self.use_cache = use_cache
+        self.cache_dir = Path('.ast_cache') if use_cache else None
+        
+        if self.use_cache:
+            self.cache_dir.mkdir(exist_ok=True)
+
+    def get_cache_path(self, code: str, language: str) -> Path:
+        """Get cache file path for given code"""
+        code_hash = hashlib.md5(code.encode()).hexdigest()
+        return self.cache_dir / f"{code_hash}.{language}.ast.json"
 
     def get_ast_from_example(self, code: str, language: str) -> Optional[Dict]:
         """
@@ -19,6 +30,12 @@ class ASTManager:
         Returns:
             AST dictionary or None if error
         """
+        if self.use_cache:
+            cache_file = self.get_cache_path(code, language)
+            if cache_file.exists():
+                with open(cache_file) as f:
+                    return json.load(f)
+
         try:
             # Create temporary file with example code
             temp_file = self.temp_dir / f"example.{language}"
@@ -42,7 +59,15 @@ class ASTManager:
 
             # Read generated AST
             with open(ast_file) as f:
-                return json.load(f)
+                ast_result = json.load(f)
+
+            # Cache result if enabled
+            if self.use_cache and ast_result:
+                cache_file = self.get_cache_path(code, language)
+                with open(cache_file, 'w') as f:
+                    json.dump(ast_result, f, indent=2)
+
+            return ast_result
 
         except Exception as e:
             print(f"Error processing example AST: {e}")
