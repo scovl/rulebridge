@@ -251,46 +251,38 @@ class RuleBridge:
             # Get valid token headers
             headers = self.token_manager.ensure_valid_token()
             
-            # Read JSON configuration and AST
+            # Read JSON configuration
             rule_config = self.file_handler.read_json(Path(self.json_file))
-            ast_data = self.ast_manager.collect_relevant_asts(
-                self.source_path,
-                rule_config['rule']
-            )
-            
-            if not rule_config or not ast_data:
+            if not rule_config:
                 return None
 
-            # Extract rule information
-            ai_input = {
-                'what_to_find': rule_config['rule']['what_to_find'],
-                'good_example': rule_config['rule']['examples']['good'],
-                'bad_example': rule_config['rule']['examples']['bad'],
-                'ast': ast_data
-            }
+            # Get ASTs from examples
+            ast_data = self.ast_manager.analyze_examples(rule_config['rule'])
+            if not ast_data['good_ast'] or not ast_data['bad_ast']:
+                return None
 
-            # Build enhanced XPath prompt with focused AST context
+            # Build enhanced XPath prompt with example ASTs
             xpath_prompt = f"""
             Create a PMD XPath expression that implements the following rule:
             
-            Description: {ai_input['what_to_find']}
+            Description: {rule_config['rule']['what_to_find']}
             
             The expression must be valid for PMD and detect the problem shown in the bad example.
             
             Problem code:
-            {ai_input['bad_example']}
+            {rule_config['rule']['examples']['bad']}
             
-            AST of the bad example:
-            {json.dumps(ast_data['example_ast'], indent=2)}
-            
-            Similar patterns found in project (samples):
-            {json.dumps(ast_data['project_samples'], indent=2)}
+            AST of problem code:
+            {json.dumps(ast_data['bad_ast'], indent=2)}
             
             Correct code:
-            {ai_input['good_example']}
+            {rule_config['rule']['examples']['good']}
             
-            Using these AST patterns, create an XPath expression that will effectively identify this issue.
-            Focus on the common structural patterns between the examples.
+            AST of correct code:
+            {json.dumps(ast_data['good_ast'], indent=2)}
+            
+            Using these AST structures, create an XPath expression that will match the problematic pattern.
+            Focus on the structural differences between good and bad examples.
             Return ONLY the XPath expression, without explanations.
             """
             
