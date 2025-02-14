@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import Dict, Optional
 import json
 import tempfile
-import subprocess
 import hashlib
+import jpype
+import jpype.imports
 
 class ASTManager:
     def __init__(self, use_cache: bool = False):
@@ -13,6 +14,14 @@ class ASTManager:
         
         if self.use_cache:
             self.cache_dir.mkdir(exist_ok=True)
+            
+        # Initialize JVM if not running
+        if not jpype.isJVMStarted():
+            jpype.startJVM(classpath=['./lib/pmd-core-7.10.0.jar'])
+            
+        # Import PMD classes
+        self.PMDConfiguration = jpype.JClass('net.sourceforge.pmd.PMDConfiguration')
+        self.LanguageRegistry = jpype.JClass('net.sourceforge.pmd.lang.LanguageRegistry')
 
     def get_cache_path(self, code: str, language: str) -> Path:
         """Get cache file path for given code"""
@@ -21,14 +30,11 @@ class ASTManager:
 
     def get_ast_from_example(self, code: str, language: str) -> Optional[Dict]:
         """
-        Extract AST from example code using PMD
+        Extract AST using PMD's Java API directly
         
         Args:
             code: Source code example
-            language: Programming language (java, xml, etc)
-            
-        Returns:
-            AST dictionary or None if error
+            language: Programming language from entryPoint.json
         """
         if self.use_cache:
             cache_file = self.get_cache_path(code, language)
@@ -37,47 +43,51 @@ class ASTManager:
                     return json.load(f)
 
         try:
-            # Create temporary file with example code
-            temp_file = self.temp_dir / f"example.{language}"
-            with open(temp_file, 'w') as f:
-                f.write(code)
-
-            # Get AST using PMD
-            ast_file = self.temp_dir / "ast.json"
-            result = subprocess.run([
-                "podman-compose", "run", "--rm", "pmd",
-                "check",
-                "-d", str(temp_file),
-                "--dump-ast",
-                "-f", "json",
-                "-r", str(ast_file)
-            ], capture_output=True)
-
-            if result.returncode != 0:
-                print(f"Error getting AST: {result.stderr.decode()}")
+            # Get language support from PMD registry
+            lang_registry = self.LanguageRegistry.getInstance()
+            lang = lang_registry.getLanguageByName(language)
+            if not lang:
+                print(f"Language not supported by PMD: {language}")
                 return None
 
-            # Read generated AST
-            with open(ast_file) as f:
-                ast_result = json.load(f)
-
-            # Cache result if enabled
-            if self.use_cache and ast_result:
+            lang_version = lang.getDefaultVersion()
+            parser = lang.getParser(lang_version)
+            
+            # Parse code to AST
+            ast = parser.parse(code)
+            
+            # Convert AST to dictionary
+            ast_dict = self._convert_ast_to_dict(ast)
+            
+            # Cache if enabled
+            if self.use_cache and ast_dict:
                 cache_file = self.get_cache_path(code, language)
                 with open(cache_file, 'w') as f:
-                    json.dump(ast_result, f, indent=2)
-
-            return ast_result
+                    json.dump(ast_dict, f, indent=2)
+                    
+            return ast_dict
 
         except Exception as e:
-            print(f"Error processing example AST: {e}")
+            print(f"Error processing {language} AST: {e}")
             return None
-        finally:
-            # Cleanup temporary files
-            if temp_file.exists():
-                temp_file.unlink()
-            if ast_file.exists():
-                ast_file.unlink()
+
+    def _convert_ast_to_dict(self, node) -> Dict:
+        """
+        Convert PMD AST node to dictionary
+        """
+        result = {
+            'type': node.getClass().getSimpleName(),
+            'image': node.getImage() if hasattr(node, 'getImage') else None,
+        }
+        
+        children = []
+        for child in node.children():
+            children.append(self._convert_ast_to_dict(child))
+            
+        if children:
+            result['children'] = children
+            
+        return result
 
     def analyze_examples(self, rule_config: Dict) -> Dict:
         """
