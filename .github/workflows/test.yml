@@ -1,0 +1,30 @@
+name: Rule Bridge CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Environment
+      uses: ./.github/workflows/steps/01-setup-env.yml
+      
+    - name: Setup PMD
+      uses: ./.github/workflows/steps/02-setup-pmd.yml
+      
+    - name: Configure Settings
+      uses: ./.github/workflows/steps/03-configure.yml
+      
+    - name: Run Tests
+      uses: ./.github/workflows/steps/04-test.yml
+      
+    - name: Upload Artifacts
+      if: always()
+      uses: ./.github/workflows/steps/05-artifacts.yml 
