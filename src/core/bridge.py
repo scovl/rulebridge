@@ -7,14 +7,21 @@ from .auth import TokenManager
 from .templates import XMLTemplates
 import json
 import requests
+import time
 
 class RuleBridge:
-    def __init__(self, json_file: str = "examples/rules/rule.json") -> None:
+    def __init__(self, json_file: str = "examples/rules/rule.json",
+                 max_wait_time: int = 300,  # 5 minutes default timeout
+                 check_interval: int = 5):   # 5 seconds between checks
         self.json_file = json_file
         self.token_manager = TokenManager()
         self.file_handler = FileHandler()
         self.xml_validator = XMLValidator()
         self.templates = XMLTemplates()
+        
+        # Polling configuration
+        self.max_wait_time = max_wait_time
+        self.check_interval = check_interval
         
         # Initialize token manager
         self.token_manager.ensure_valid_token()
@@ -113,6 +120,47 @@ class RuleBridge:
             print(f"Error converting report: {str(e)}")
             return None
 
+    def wait_for_ai_response(self, response_id: str, headers: Dict) -> Optional[Dict]:
+        """
+        Wait for AI response with timeout
+        
+        Args:
+            response_id: ID of the AI request to check
+            headers: Authentication headers
+            
+        Returns:
+            Response data if successful, None if timeout or error
+        """
+        start_time = time.time()
+        
+        while (time.time() - start_time) < self.max_wait_time:
+            try:
+                response = requests.get(
+                    f"{self.token_manager.get_url}/{response_id}",
+                    headers=headers,
+                    proxies=PROXIES
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('status') == 'completed':
+                        return data
+                    elif data.get('status') == 'failed':
+                        print(f"AI processing failed: {data.get('error', 'Unknown error')}")
+                        return None
+                elif response.status_code != 202:  # 202 means still processing
+                    print(f"Error checking AI status: {response.status_code}")
+                    return None
+                
+            except Exception as e:
+                print(f"Error during AI response check: {e}")
+                return None
+            
+            time.sleep(self.check_interval)
+        
+        print(f"Timeout waiting for AI response after {self.max_wait_time} seconds")
+        return None
+
     def process_natural_language_rule(self):
         """
         Process natural language rule and convert to PMD XML
@@ -150,18 +198,30 @@ class RuleBridge:
                 'max_tokens': 500
             }
             
-            xpath_response = requests.post(
+            # Initial request to AI
+            initial_response = requests.post(
                 self.token_manager.post_url,
                 headers=headers,
                 json=xpath_payload,
                 proxies=PROXIES
             )
             
-            if xpath_response.status_code != 200:
-                print(f"Error generating XPath: {xpath_response.status_code}")
+            if initial_response.status_code != 202:  # 202 means accepted for processing
+                print(f"Error submitting to AI: {initial_response.status_code}")
                 return None
             
-            xpath_expression = xpath_response.json()['choices'][0]['text'].strip()
+            # Get request ID and wait for completion
+            request_id = initial_response.json().get('request_id')
+            if not request_id:
+                print("No request ID received from AI")
+                return None
+            
+            # Wait for AI processing
+            ai_response = self.wait_for_ai_response(request_id, headers)
+            if not ai_response:
+                return None
+            
+            xpath_expression = ai_response['result']['choices'][0]['text'].strip()
             
             # Build XML using templates
             rule_xml = self.templates.RULE_TEMPLATE.format(
