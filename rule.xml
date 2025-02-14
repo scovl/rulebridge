@@ -2,24 +2,18 @@
 <ruleset name="Regra para dependência Jacoco 0.8.12"
          xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0
-                             http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd"
+         xsi:noNamespaceSchemaLocation="http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
 
   <description>
     Regras customizadas para verificar se o arquivo pom.xml contém a dependência do Jacoco (org.jacoco)
     na versão 0.8.12.
   </description>
-
-  <!-- Esta regra utiliza XPath para inspecionar o pom.xml.
-       Se não for encontrada nenhuma dependência com groupId 'org.jacoco' e version '0.8.12',
-       a expressão XPath retorna o nó raiz (<project>), causando a violação. -->
   <rule name="CheckJacocoDependency"
         language="xml"
         message="O pom.xml deve conter a dependência do Jacoco (org.jacoco) na versão 0.8.12."
         class="net.sourceforge.pmd.lang.rule.XPathRule">
-    <description>
-      Verifica a presença da dependência do Jacoco com a versão 0.8.12 no pom.xml.
-    </description>
+    <description>[CODE_SMELL][20]</description>
     <priority>3</priority>
     <properties>
       <property name="xpath">
