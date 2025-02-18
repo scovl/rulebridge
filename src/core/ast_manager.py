@@ -1,11 +1,14 @@
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import json
 import tempfile
 import subprocess
 import hashlib
+import shlex
 
 class ASTManager:
+    PMD_IMAGE = "docker.io/lobocode/pmd:7.10.0"
+    
     def __init__(self, use_cache: bool = False):
         self.temp_dir = Path(tempfile.mkdtemp())
         self.use_cache = use_cache
@@ -36,29 +39,48 @@ class ASTManager:
         }
         return extensions.get(language.lower(), '.txt')
 
+    def _build_ast_command(self, temp_file: Path, language: str) -> List[str]:
+        """
+        Build safe command list for PMD AST dump
+        """
+        return [
+            'podman',
+            'run',
+            '--rm',
+            '-v',
+            f"{temp_file.parent}:/src:Z",
+            self.PMD_IMAGE,
+            'ast-dump',
+            '--file',
+            f"src/{temp_file.name}",
+            f"-l={shlex.quote(language)}",
+            '-e=UTF-8'
+        ]
+
     def generate_ast(self, code: str, language: str) -> Optional[Dict]:
         """
         Generate AST using PMD via podman
         """
+        if not isinstance(code, str) or not isinstance(language, str):
+            print("Invalid input types")
+            return None
+
         try:
             # Create temporary file with proper extension
             ext = self.get_temp_file_extension(language)
             temp_file = self.temp_dir / f"temp{ext}"
             
             # Write code to temp file
-            with open(temp_file, 'w', encoding='utf-8') as f:
-                f.write(code)
+            temp_file.write_text(code, encoding='utf-8')
 
-            # Run PMD AST dump via podman
-            result = subprocess.run([
-                'podman', 'run', '--rm',
-                '-v', f"{temp_file.parent}:/src",
-                'docker.io/lobocode/pmd:7.10.0',
-                'ast-dump',
-                '--file', f"src/{temp_file.name}",
-                f"-l={language}",
-                '-e=UTF-8'
-            ], capture_output=True, text=True)
+            # Build and run command
+            cmd = self._build_ast_command(temp_file, language)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False  # Don't raise exception on non-zero exit
+            )
 
             if result.returncode != 0:
                 print(f"Error generating AST: {result.stderr}")
