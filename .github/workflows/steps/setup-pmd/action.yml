@@ -1,11 +1,19 @@
 name: 'Setup PMD'
-description: 'Setup PMD environment'
+description: 'Setup PMD container'
 
 runs:
   using: composite
   steps:
-    - name: Setup PMD environment
+    - name: Pull PMD image
       shell: bash
       run: |
-        chmod +x scripts/setup.sh
-        ./scripts/setup.sh 
+        podman pull docker.io/lobocode/pmd:7.10.0
+        
+        # Verify image
+        if ! podman image exists docker.io/lobocode/pmd:7.10.0; then
+            echo "Error: Failed to pull PMD image"
+            exit 1
+        fi
+        
+        # Create required directories
+        mkdir -p .ast_cache test/src 

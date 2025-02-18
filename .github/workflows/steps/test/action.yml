@@ -7,16 +7,14 @@ runs:
     - name: Run test example
       shell: bash
       run: |
+        # Create test file
+        echo "public class Test { public void test() { } public void test() { } }" > test/src/Test.java
+        
         # Run main script
         python main.py
         
-        # Create test Java file with issue
-        mkdir -p test/src
-        echo "public class Test { public void test() { } public void test() { } }" > test/src/Test.java
-        
-        # Run analysis through Python
-        python -c "
-        from src import RuleBridge
-        bridge = RuleBridge(source_path='test/src')
-        bridge.process()
-        " 
+        # Verify rule generation
+        if [ ! -f "rule.xml" ]; then
+            echo "Error: rule.xml not generated"
+            exit 1
+        fi 

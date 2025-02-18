@@ -16,7 +16,7 @@ jobs:
     - name: Setup Environment
       uses: ./.github/workflows/steps/setup-env
       
-    - name: Setup PMD
+    - name: Setup PMD Container
       uses: ./.github/workflows/steps/setup-pmd
       
     - name: Configure Settings
