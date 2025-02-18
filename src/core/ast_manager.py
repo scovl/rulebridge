@@ -103,36 +103,32 @@ class ASTManager:
 
     def analyze_examples(self, rule_config: Dict) -> Dict:
         """
-        Analyze good and bad examples from rule configuration
+        Analyze bad example from rule configuration
+        
+        Args:
+            rule_config: Rule configuration from entryPoint.json
+            
+        Returns:
+            Dictionary with AST for bad example
         """
         language = rule_config['language']
-        good_example = rule_config['examples']['good']
         bad_example = rule_config['examples']['bad']
 
         # Use cache if enabled
         if self.use_cache:
-            good_cache = self.get_cache_path(good_example, language)
             bad_cache = self.get_cache_path(bad_example, language)
             
-            if good_cache.exists() and bad_cache.exists():
+            if bad_cache.exists():
                 return {
-                    'good_ast': json.loads(good_cache.read_text()),
-                    'bad_ast': json.loads(bad_cache.read_text())
+                    'ast': json.loads(bad_cache.read_text())
                 }
 
-        # Generate ASTs
-        good_ast = self.generate_ast(good_example, language)
-        bad_ast = self.generate_ast(bad_example, language)
+        # Generate AST
+        ast = self.generate_ast(bad_example, language)
 
-        # Cache results if enabled
-        if self.use_cache and good_ast and bad_ast:
-            good_cache = self.get_cache_path(good_example, language)
+        # Cache result if enabled
+        if self.use_cache and ast:
             bad_cache = self.get_cache_path(bad_example, language)
-            
-            good_cache.write_text(json.dumps(good_ast))
-            bad_cache.write_text(json.dumps(bad_ast))
+            bad_cache.write_text(json.dumps(ast))
 
-        return {
-            'good_ast': good_ast,
-            'bad_ast': bad_ast
-        } 
+        return {'ast': ast} 

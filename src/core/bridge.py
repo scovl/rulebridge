@@ -260,10 +260,10 @@ class RuleBridge:
 
             # Get ASTs from examples
             ast_data = self.ast_manager.analyze_examples(rule_config['rule'])
-            if not ast_data['good_ast'] or not ast_data['bad_ast']:
+            if not ast_data['ast']:
                 return None
 
-            # Build enhanced XPath prompt with example ASTs
+            # Build enhanced XPath prompt with example AST
             xpath_prompt = f"""
             Create a PMD XPath expression that implements the following rule:
             
@@ -275,16 +275,9 @@ class RuleBridge:
             {rule_config['rule']['examples']['bad']}
             
             AST of problem code:
-            {json.dumps(ast_data['bad_ast'], indent=2)}
+            {json.dumps(ast_data['ast'], indent=2)}
             
-            Correct code:
-            {rule_config['rule']['examples']['good']}
-            
-            AST of correct code:
-            {json.dumps(ast_data['good_ast'], indent=2)}
-            
-            Using these AST structures, create an XPath expression that will match the problematic pattern.
-            Focus on the structural differences between good and bad examples.
+            Using this AST structure, create an XPath expression that will match this problematic pattern.
             Return ONLY the XPath expression, without explanations.
             """
             
