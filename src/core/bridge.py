@@ -336,12 +336,12 @@ class RuleBridge:
             # Save formatted XML rule
             xml_file = Path(self.json_file).with_suffix('.xml')
             if self.file_handler.write_xml(pretty_xml, xml_file):
-                # Validate generated XML
-                if self.xml_validator.validate_pmd_rule(xml_file):
-                    print(f"XML rule successfully generated: {xml_file}")
+                # Validate generated XML by testing it
+                if self.xml_validator.validate_pmd_rule(xml_file, rule_config['rule']['language']):
+                    print(f"XML rule successfully generated and validated: {xml_file}")
                     return xml_file
                 else:
-                    print("Generated XML is not valid for PMD")
+                    print("Generated rule failed validation - no violations found")
                     return None
                     
         except Exception as e:

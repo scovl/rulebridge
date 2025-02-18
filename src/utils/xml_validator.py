@@ -1,35 +1,43 @@
-from xml.dom import minidom
-from typing import Union
 from pathlib import Path
+from typing import Union, Optional
+import tempfile
+from src.core.analyzer import PMDAnalyzer
 
 class XMLValidator:
-    def validate_pmd_rule(self, xml_file: Union[str, Path]) -> bool:
+    def validate_pmd_rule(self, xml_file: Union[str, Path], language: str) -> bool:
+        """
+        Validate PMD rule by testing it against a bad example
+        """
         try:
-            dom = minidom.parse(xml_file)
-            
-            # Validate root elements
-            ruleset = dom.getElementsByTagName('ruleset')
-            if not ruleset:
-                raise ValueError("Element 'ruleset' not found")
-            
-            rule = dom.getElementsByTagName('rule')
-            if not rule:
-                raise ValueError("Element 'rule' not found")
-            
-            # Validate required attributes
-            required_attrs = ['name', 'language', 'message', 'class']
-            for attr in required_attrs:
-                if not rule[0].getAttribute(attr):
-                    raise ValueError(f"Attribute '{attr}' not found in rule")
-            
-            # Validate required child elements
-            required_elements = ['description', 'priority']
-            for elem in required_elements:
-                if not rule[0].getElementsByTagName(elem):
-                    raise ValueError(f"Element '{elem}' not found in rule")
-            
-            return True
-            
+            # Create temporary test file with known violation
+            with tempfile.NamedTemporaryFile(suffix=f'.{language}', mode='w', delete=False) as tmp:
+                tmp.write(self.get_test_code(language))
+                test_file = Path(tmp.name)
+
+            # Run PMD analysis
+            analyzer = PMDAnalyzer()
+            result = analyzer.analyze(
+                rule_file=Path(xml_file),
+                source_path=test_file,
+                language=language
+            )
+
+            # Rule is valid if it finds at least one violation
+            return result is not None and len(result.get('violations', [])) > 0
+
         except Exception as e:
-            print(f"Error validating XML: {e}")
-            return False 
+            print(f"Error validating rule: {e}")
+            return False
+        finally:
+            if 'test_file' in locals():
+                test_file.unlink(missing_ok=True)
+
+    def get_test_code(self, language: str) -> str:
+        """Get test code that should trigger the rule"""
+        return self.test_cases.get(language, "")
+
+    test_cases = {
+        'java': 'public class Test { public void test() { } public void test() { } }',
+        'xml': '<project><dependencies></dependencies></project>',
+        'python': 'def test():\n    pass\ndef test():\n    pass'
+    } 
