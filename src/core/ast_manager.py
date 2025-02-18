@@ -2,9 +2,8 @@ from pathlib import Path
 from typing import Dict, Optional
 import json
 import tempfile
+import subprocess
 import hashlib
-import jpype
-import jpype.imports
 
 class ASTManager:
     def __init__(self, use_cache: bool = False):
@@ -14,96 +13,104 @@ class ASTManager:
         
         if self.use_cache:
             self.cache_dir.mkdir(exist_ok=True)
-            
-        # Initialize JVM if not running
-        if not jpype.isJVMStarted():
-            jpype.startJVM(classpath=['./lib/pmd-core-7.10.0.jar'])
-            
-        # Import PMD classes
-        self.PMDConfiguration = jpype.JClass('net.sourceforge.pmd.PMDConfiguration')
-        self.LanguageRegistry = jpype.JClass('net.sourceforge.pmd.lang.LanguageRegistry')
 
-    def get_cache_path(self, code: str, language: str) -> Path:
-        """Get cache file path for given code"""
-        code_hash = hashlib.md5(code.encode()).hexdigest()
-        return self.cache_dir / f"{code_hash}.{language}.ast.json"
-
-    def get_ast_from_example(self, code: str, language: str) -> Optional[Dict]:
+    def get_temp_file_extension(self, language: str) -> str:
         """
-        Extract AST using PMD's Java API directly
-        
-        Args:
-            code: Source code example
-            language: Programming language from entryPoint.json
+        Get file extension based on language
         """
-        if self.use_cache:
-            cache_file = self.get_cache_path(code, language)
-            if cache_file.exists():
-                with open(cache_file) as f:
-                    return json.load(f)
+        extensions = {
+            'java': '.java',
+            'python': '.py',
+            'javascript': '.js',
+            'typescript': '.ts',
+            'ruby': '.rb',
+            'go': '.go',
+            'cpp': '.cpp',
+            'c': '.c',
+            'php': '.php',
+            'scala': '.scala',
+            'kotlin': '.kt',
+            'xml': '.xml',
+            'yaml': '.yml',
+            'json': '.json'
+        }
+        return extensions.get(language.lower(), '.txt')
 
+    def generate_ast(self, code: str, language: str) -> Optional[Dict]:
+        """
+        Generate AST using PMD via podman
+        """
         try:
-            # Get language support from PMD registry
-            lang_registry = self.LanguageRegistry.getInstance()
-            lang = lang_registry.getLanguageByName(language)
-            if not lang:
-                print(f"Language not supported by PMD: {language}")
+            # Create temporary file with proper extension
+            ext = self.get_temp_file_extension(language)
+            temp_file = self.temp_dir / f"temp{ext}"
+            
+            # Write code to temp file
+            with open(temp_file, 'w', encoding='utf-8') as f:
+                f.write(code)
+
+            # Run PMD AST dump via podman
+            result = subprocess.run([
+                'podman', 'run', '--rm',
+                '-v', f"{temp_file.parent}:/src",
+                'docker.io/lobocode/pmd:7.10.0',
+                'ast-dump',
+                '--file', f"src/{temp_file.name}",
+                f"-l={language}",
+                '-e=UTF-8'
+            ], capture_output=True, text=True)
+
+            if result.returncode != 0:
+                print(f"Error generating AST: {result.stderr}")
                 return None
 
-            lang_version = lang.getDefaultVersion()
-            parser = lang.getParser(lang_version)
-            
-            # Parse code to AST
-            ast = parser.parse(code)
-            
-            # Convert AST to dictionary
-            ast_dict = self._convert_ast_to_dict(ast)
-            
-            # Cache if enabled
-            if self.use_cache and ast_dict:
-                cache_file = self.get_cache_path(code, language)
-                with open(cache_file, 'w') as f:
-                    json.dump(ast_dict, f, indent=2)
-                    
-            return ast_dict
+            # Parse AST output
+            try:
+                return json.loads(result.stdout)
+            except json.JSONDecodeError:
+                print("Error parsing AST output")
+                return None
 
         except Exception as e:
-            print(f"Error processing {language} AST: {e}")
+            print(f"Error in AST generation: {e}")
             return None
-
-    def _convert_ast_to_dict(self, node) -> Dict:
-        """
-        Convert PMD AST node to dictionary
-        """
-        result = {
-            'type': node.getClass().getSimpleName(),
-            'image': node.getImage() if hasattr(node, 'getImage') else None,
-        }
-        
-        children = []
-        for child in node.children():
-            children.append(self._convert_ast_to_dict(child))
-            
-        if children:
-            result['children'] = children
-            
-        return result
+        finally:
+            # Cleanup temp file
+            if temp_file.exists():
+                temp_file.unlink()
 
     def analyze_examples(self, rule_config: Dict) -> Dict:
         """
         Analyze good and bad examples from rule configuration
-        
-        Args:
-            rule_config: Rule configuration from entryPoint.json
-            
-        Returns:
-            Dictionary with ASTs for both examples
         """
         language = rule_config['language']
         good_example = rule_config['examples']['good']
         bad_example = rule_config['examples']['bad']
 
+        # Use cache if enabled
+        if self.use_cache:
+            good_cache = self.get_cache_path(good_example, language)
+            bad_cache = self.get_cache_path(bad_example, language)
+            
+            if good_cache.exists() and bad_cache.exists():
+                return {
+                    'good_ast': json.loads(good_cache.read_text()),
+                    'bad_ast': json.loads(bad_cache.read_text())
+                }
+
+        # Generate ASTs
+        good_ast = self.generate_ast(good_example, language)
+        bad_ast = self.generate_ast(bad_example, language)
+
+        # Cache results if enabled
+        if self.use_cache and good_ast and bad_ast:
+            good_cache = self.get_cache_path(good_example, language)
+            bad_cache = self.get_cache_path(bad_example, language)
+            
+            good_cache.write_text(json.dumps(good_ast))
+            bad_cache.write_text(json.dumps(bad_ast))
+
         return {
-            'good_ast': self.get_ast_from_example(good_example, language),
-            'bad_ast': self.get_ast_from_example(bad_example, language)
+            'good_ast': good_ast,
+            'bad_ast': bad_ast
         } 

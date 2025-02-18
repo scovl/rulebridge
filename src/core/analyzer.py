@@ -1,52 +1,41 @@
 from pathlib import Path
 from typing import Dict, Optional
-import jpype
+import subprocess
 import json
 
 class PMDAnalyzer:
-    def __init__(self):
-        self.PMD = jpype.JClass('net.sourceforge.pmd.PMD')
-        self.PMDConfiguration = jpype.JClass('net.sourceforge.pmd.PMDConfiguration')
-        
-    def analyze(self, rule_file: Path, source_path: Path) -> Dict:
+    def analyze(self, rule_file: Path, source_path: Path, language: str) -> Optional[Dict]:
         """
-        Analyze source code using PMD rule
+        Analyze source code using PMD rule via podman
         
         Args:
             rule_file: Path to PMD rule XML
             source_path: Path to source code to analyze
-            
-        Returns:
-            Analysis results as dictionary
+            language: Programming language to analyze
         """
         try:
-            # Configure PMD
-            config = self.PMDConfiguration()
-            config.setInputPaths(str(source_path))
-            config.setRuleSets(str(rule_file))
-            config.setReportFormat("json")
-            
-            # Run analysis
-            pmd = self.PMD()
-            results = pmd.runPmd(config)
-            
-            return self._convert_results(results)
-            
+            result = subprocess.run([
+                'podman', 'run', '--rm',
+                '-v', f"{source_path.parent}:/src",
+                '-v', f"{rule_file.parent}:/rules",
+                'docker.io/lobocode/pmd:7.10.0',
+                'check',
+                '-R', f"/rules/{rule_file.name}",
+                '-d', f"src/{source_path.name}",
+                f"-l={language}",
+                '-f', 'json'
+            ], capture_output=True, text=True)
+
+            if result.returncode != 0:
+                print(f"Error running PMD check: {result.stderr}")
+                return None
+
+            try:
+                return json.loads(result.stdout)
+            except json.JSONDecodeError:
+                print("Error parsing PMD output")
+                return None
+
         except Exception as e:
             print(f"Error during analysis: {e}")
-            return None
-            
-    def _convert_results(self, pmd_results) -> Dict:
-        """Convert PMD results to dictionary format"""
-        return {
-            'violations': [
-                {
-                    'rule': violation.getRule().getName(),
-                    'description': violation.getDescription(),
-                    'file': violation.getFilename(),
-                    'line': violation.getBeginLine(),
-                    'priority': violation.getRule().getPriority()
-                }
-                for violation in pmd_results.getViolations()
-            ]
-        } 
+            return None 
