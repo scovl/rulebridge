@@ -1,14 +1,16 @@
 #!/bin/bash
 
-# Create lib directory
-mkdir -p lib
+# Create project directories
+mkdir -p .ast_cache
+mkdir -p test/src
 
-# Download PMD dependencies
-wget https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.10.0/pmd-bin-7.10.0.zip
-unzip pmd-bin-7.10.0.zip
+# Pull PMD image
+podman pull docker.io/lobocode/pmd:7.10.0
 
-# Copy PMD JARs
-cp pmd-bin-7.10.0/lib/*.jar lib/
+# Verify image
+if ! podman image exists docker.io/lobocode/pmd:7.10.0; then
+    echo "Error: Failed to pull PMD image"
+    exit 1
+fi
 
-# Cleanup
-rm -rf pmd-bin-7.10.0* 
+echo "Setup completed successfully" 

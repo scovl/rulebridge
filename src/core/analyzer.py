@@ -39,12 +39,8 @@ class PMDAnalyzer:
             source_path: Path to source code to analyze
             language: Programming language to analyze
         """
-        if not isinstance(rule_file, Path) or not isinstance(source_path, Path):
-            print("Invalid path types")
-            return None
-
-        if not isinstance(language, str):
-            print("Invalid language type")
+        if not all(isinstance(x, (Path, str)) for x in [rule_file, source_path, language]):
+            print("Invalid input types")
             return None
 
         try:
