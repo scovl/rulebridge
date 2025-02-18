@@ -15,10 +15,10 @@ Planned support for:
 ## How it Works
 
 1. Takes a natural language rule description via `entryPoint.json`
-2. Generates AST of the target code using PMD's --dump-ast
+2. Generates AST of the bad example using PMD's ast-dump
 3. Uses AI with AST context to generate accurate XPath expressions
 4. Converts the rule into PMD XML format
-5. Validates and executes the rule
+5. Validates rule by testing against bad example
 
 ## Architecture
 
@@ -58,16 +58,12 @@ rulebridge/
 
 ## Usage
 
-### Using with Podman
+### Install dependencies
 ```bash
-# Start PMD container
-podman-compose up -d
+python -m pip install -r requirements.txt
 
-# Run analysis
-./analyze.sh rule.xml <source_code_path>
-
-# Stop container when done
-podman-compose down
+# Pull PMD image
+podman pull docker.io/lobocode/pmd:7.10.0
 ```
 
 ### Manual Setup
@@ -84,7 +80,7 @@ python main.py
 
 ## Note
 
-The PMD integration is currently experimental and serves as a proof of concept. The project's goal is to support multiple static analysis engines, with Semgrep being the next planned integration.
+The PMD integration uses containerized execution for better portability and isolation. The project's goal is to support multiple static analysis engines, with Semgrep being the next planned integration.
 
 ## Contributing
 
@@ -93,6 +89,21 @@ Contributions are welcome! Please feel free to submit a Pull Request. Areas of i
 - Rule validation improvements
 - AI prompt engineering
 - Test coverage
+
+### CI/CD
+
+The project uses GitHub Actions for continuous integration:
+
+- Runs on every push and pull request
+- Sets up Python and Podman environment
+- Installs PMD and dependencies
+- Runs test example
+- Validates rule generation
+
+Required secrets:
+- `STACKSPOT_CLIENT_ID`
+- `STACKSPOT_CLIENT_KEY`
+- `STACKSPOT_REALM`
 
 ## License
 
