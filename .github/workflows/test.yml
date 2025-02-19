@@ -19,8 +19,9 @@ jobs:
     - name: Setup PMD Container
       uses: ./.github/workflows/steps/setup-pmd
       
-    - name: Configure Settings
-      uses: ./.github/workflows/steps/configure
+    # Temporarily commented out
+    # - name: Configure Settings
+    #   uses: ./.github/workflows/steps/configure
       
     - name: Run Tests
       uses: ./.github/workflows/steps/test
