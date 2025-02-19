@@ -46,8 +46,8 @@ PMD_SONAR_MAPPING = {
     }
 }
 
-# Combined tags for PMD description field
-SEVERITY_TYPE_TAGS = {
+# Severity to description tag mapping
+SEVERITY_MAPPING = {
     1: '[BLOCKER][100]',
     2: '[CRITICAL][50]',
     3: '[CODE_SMELL][20]',
