@@ -13,9 +13,7 @@ import requests
 import time
 
 class RuleBridge:
-    def __init__(self, json_file: str = "examples/rules/rule.json",
-                 max_wait_time: int = 300,  # 5 minutes default timeout
-                 check_interval: int = 5):   # 5 seconds between checks
+    def __init__(self, json_file: str = "examples/rules/rule.json"):
         self.json_file = json_file
         self.token_manager = TokenManager()
         self.file_handler = FileHandler()
@@ -23,13 +21,39 @@ class RuleBridge:
         self.templates = XMLTemplates()
         self.ast_manager = ASTManager()
         self.analyzer = PMDAnalyzer()
-        
-        # Polling configuration
-        self.max_wait_time = max_wait_time
-        self.check_interval = check_interval
-        
-        # Initialize token manager
-        self.token_manager.ensure_valid_token()
+
+    def process(self) -> None:
+        """
+        Execute the complete flow to generate XML rule
+        """
+        try:
+            # Get valid token headers
+            headers = self.token_manager.ensure_valid_token()
+            
+            # Read JSON configuration
+            rule_config = self.file_handler.read_json(Path(self.json_file))
+            if not rule_config:
+                return None
+
+            # Get AST from bad example
+            ast_data = self.ast_manager.analyze_examples(rule_config['rule'])
+            if not ast_data['ast']:
+                return None
+
+            # Generate XPath via AI
+            xpath_expression = self._get_xpath_from_ai(headers, rule_config, ast_data)
+            if not xpath_expression:
+                return None
+
+            # Generate and validate XML rule
+            xml_file = self._generate_xml_rule(rule_config, xpath_expression)
+            if not xml_file:
+                return None
+
+            print(f"XML rule generated successfully: {xml_file}")
+
+        except Exception as e:
+            print(f"Error during execution: {e}")
 
     def map_pmd_severity_to_sonar(self, pmd_severity):
         """
@@ -172,7 +196,7 @@ class RuleBridge:
         """
         start_time = time.time()
         
-        while (time.time() - start_time) < self.max_wait_time:
+        while (time.time() - start_time) < 300:  # 5 minutes default timeout
             try:
                 response = requests.get(
                     f"{self.token_manager.get_url}/{response_id}",
@@ -195,9 +219,9 @@ class RuleBridge:
                 print(f"Error during AI response check: {e}")
                 return None
             
-            time.sleep(self.check_interval)
+            time.sleep(5)  # 5 seconds between checks
         
-        print(f"Timeout waiting for AI response after {self.max_wait_time} seconds")
+        print(f"Timeout waiting for AI response after 300 seconds")
         return None
 
     def read_ast_file(self, file_path: str = "code_ast.json") -> Optional[Dict]:
@@ -244,21 +268,20 @@ class RuleBridge:
         
         return payload
 
-    def process_natural_language_rule(self):
+    def _get_xpath_from_ai(self, headers: Dict, rule_config: Dict, ast_data: Dict) -> Optional[str]:
         """
-        Process natural language rule and convert to PMD XML
-        using Stackspot AI only for XPath generation
+        Get XPath expression from AI
+        
+        Args:
+            headers: Authentication headers
+            rule_config: Rule configuration
+            ast_data: AST data
+            
+        Returns:
+            XPath expression if successful, None if error
         """
         try:
-            # Get valid token headers
-            headers = self.token_manager.ensure_valid_token()
-            
-            # Read JSON configuration
-            rule_config = self.file_handler.read_json(Path(self.json_file))
-            if not rule_config:
-                return None
-
-            # Get ASTs from examples
+            # Get AST from bad example
             ast_data = self.ast_manager.analyze_examples(rule_config['rule'])
             if not ast_data['ast']:
                 return None
@@ -313,6 +336,24 @@ class RuleBridge:
             
             xpath_expression = ai_response['result']['choices'][0]['text'].strip()
             
+            return xpath_expression
+            
+        except Exception as e:
+            print(f"Error getting XPath from AI: {e}")
+            return None
+
+    def _generate_xml_rule(self, rule_config: Dict, xpath_expression: str) -> Optional[Path]:
+        """
+        Generate and validate XML rule
+        
+        Args:
+            rule_config: Rule configuration
+            xpath_expression: XPath expression
+            
+        Returns:
+            XML file path if successful, None if error
+        """
+        try:
             # Build XML using templates and constants
             rule_xml = self.templates.RULE_TEMPLATE.format(
                 name=rule_config['rule']['name'],
@@ -342,26 +383,5 @@ class RuleBridge:
                     return None
                     
         except Exception as e:
-            print(f"Error processing rule: {e}")
-            return None
-
-    def process(self) -> None:
-        """
-        Execute the complete flow to generate XML rule
-        """
-        try:
-            # Generate XML rule
-            xml_rule = self.process_natural_language_rule()
-            if not xml_rule:
-                return
-
-            print(f"XML rule generated successfully: {xml_rule}")
-            
-            # Optional: Run analysis immediately
-            if self.source_path:
-                results = self.analyzer.analyze(xml_rule, self.source_path)
-                if results:
-                    print("Analysis results:", json.dumps(results, indent=2))
-
-        except Exception as e:
-            print(f"Error during execution: {e}") 
+            print(f"Error generating XML rule: {e}")
+            return None 

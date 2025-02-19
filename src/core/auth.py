@@ -10,7 +10,6 @@ class TokenManager:
         self.auth_file = Path("config/auth.json")
         self.auth_url = "https://api.stackspot.com/v1/auth"
         self.post_url = "https://api.stackspot.com/v1/completions"
-        self.get_url = "https://api.stackspot.com/v1/rules"
         
         self.auth_header = {'Content-Type': 'application/x-www-form-urlencoded'}
         self.data_urlencode = {
@@ -52,31 +51,24 @@ class TokenManager:
 
     def ensure_valid_token(self) -> Dict:
         try:
-            # Check if auth file exists
             if self.auth_file.exists():
                 with open(self.auth_file, 'r') as f:
                     auth_data = json.load(f)
-                
-                # Get new token if current is expired
                 if self.is_token_expired(auth_data):
                     auth_data = self.get_token()
             else:
-                # Create new token if no auth file
                 auth_data = self.get_token()
             
-            if auth_data:
-                # Build headers with valid token
-                return {
-                    'Content-Type': 'application/json',
-                    'Authorization': f"Bearer {auth_data['access_token']}",
-                    'X-Client-Id': CLIENT_ID,
-                    'X-Realm': REALM
-                }
-            else:
-                raise Exception("Could not obtain valid token")
+            return self._build_headers(auth_data) if auth_data else None
                 
         except Exception as e:
             print(f"Error ensuring valid token: {e}")
             raise
 
-    # ... métodos de autenticação 
+    def _build_headers(self, auth_data: Dict) -> Dict:
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': f"Bearer {auth_data['access_token']}",
+            'X-Client-Id': CLIENT_ID,
+            'X-Realm': REALM
+        }
