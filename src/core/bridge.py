@@ -271,13 +271,17 @@ class RuleBridge:
             
             The expression must be valid for PMD and detect the problem shown in the bad example.
             
-            Problem code:
+            Problem code (what to find):
             {rule_config['rule']['examples']['bad']}
             
             AST of problem code:
             {json.dumps(ast_data['ast'], indent=2)}
             
-            Using this AST structure, create an XPath expression that will match this problematic pattern.
+            Reference code (correct implementation):
+            {rule_config['rule']['examples']['good']}
+            
+            Using the AST structure of the problem code and comparing with the reference code,
+            create an XPath expression that will match this problematic pattern.
             Return ONLY the XPath expression, without explanations.
             """
             
