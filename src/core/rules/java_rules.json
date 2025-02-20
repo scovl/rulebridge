@@ -1,0 +1,24 @@
+{
+    "supported_patterns": [
+        {
+            "name": "Method Naming",
+            "keywords": ["method name", "naming convention", "camelcase"],
+            "example": "Methods should follow camelCase naming convention"
+        },
+        {
+            "name": "Code Duplication",
+            "keywords": ["duplicate", "copy paste", "repeated code"],
+            "example": "Avoid duplicate method implementations"
+        },
+        {
+            "name": "Empty Blocks",
+            "keywords": ["empty", "block", "catch", "try", "if"],
+            "example": "Avoid empty catch blocks"
+        }
+    ],
+    "limitations": [
+        "Cannot analyze method behavior",
+        "Cannot verify business logic",
+        "Limited to structural patterns"
+    ]
+} 

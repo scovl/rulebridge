@@ -1,0 +1,19 @@
+{
+    "supported_patterns": [
+        {
+            "name": "Missing Elements",
+            "keywords": ["missing", "required", "mandatory", "element"],
+            "example": "Check for missing required XML elements"
+        },
+        {
+            "name": "Version Check",
+            "keywords": ["version", "dependency", "artifact"],
+            "example": "Validate dependency versions in pom.xml"
+        }
+    ],
+    "limitations": [
+        "Cannot validate external references",
+        "Cannot verify schema compliance",
+        "Limited to structural checks"
+    ]
+} 
