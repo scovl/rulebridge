@@ -8,6 +8,7 @@ from .templates import XMLTemplates
 from .constants import PMD_RULE_METADATA, SEVERITY_MAPPING, PMD_SONAR_MAPPING
 from .ast_manager import ASTManager
 from .analyzer import PMDAnalyzer
+from .rag_helper import PMDRuleHelper
 import json
 import requests
 import time
@@ -33,6 +34,17 @@ class RuleBridge:
             # Read JSON configuration
             rule_config = self.file_handler.read_json(Path(self.json_file))
             if not rule_config:
+                return None
+
+            # Validate rule feasibility
+            helper = PMDRuleHelper()
+            feasibility = helper.validate_rule_feasibility(
+                rule_config['rule']['language'],
+                rule_config['rule']['what_to_find']
+            )
+
+            if not feasibility['feasible']:
+                print(feasibility['message'])
                 return None
 
             # Get AST from bad example
